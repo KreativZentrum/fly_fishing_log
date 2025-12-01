@@ -1,0 +1,41 @@
+# NZ Flyfishing Web Scraper Configuration
+# Article 2 & 3 Compliance: robots.txt, rate limiting, polite crawling
+
+# Base site configuration
+base_url: "https://nzfishing.com"
+user_agent: "nzfishing-scraper/1.0 (polite crawling; Article 2 compliant)"
+
+# Discovery rules (selectors and paths)
+discovery_rules:
+  index_path: "/where-to-fish"
+  region_selector: ".region-list .region-item"
+  river_selector: ".fishing-waters a"
+  detail_selectors:
+    fish_type: ".fish-type"
+    situation: ".situation"
+    recommended_lures: ".recommended-lures"
+    regulations: ".regulations"
+
+# Rate limiting (Article 3.1)
+request_delay: 3.0  # Minimum seconds between requests
+jitter_max: 0.5     # Optional random jitter (0-0.5 seconds)
+
+# Caching (Article 3.5)
+cache_dir: ".cache/nzfishing/"
+cache_ttl: 86400    # Seconds (24 hours)
+
+# Retry logic (Article 3.2, 3.3)
+max_retries: 3
+retry_backoff: [1, 2, 4, 8]  # Exponential backoff in seconds
+halt_on_consecutive_5xx: 3   # Halt after N consecutive 5xx errors
+
+# Output directories
+output_dir: "pdfs/"
+database_path: "database/nzfishing.db"
+log_path: "logs/scraper.log"
+
+# PDF generation
+pdf:
+  template_dir: "templates/"
+  page_size: "A4"
+  orientation: "portrait"

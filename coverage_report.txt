@@ -1,0 +1,864 @@
+FFFF..............................F.....F.FF............................ [ 48%]
+.....................FF......F.F........FF................F..FFF........ [ 96%]
+.....F                                                                   [100%]
+=================================== FAILURES ===================================
+_____________________ test_fetcher_enforces_3_second_delay _____________________
+
+test_config = <src.config.Config object at 0x103a167b0>
+test_logger = <src.logger.ScraperLogger object at 0x103a16900>
+tmp_path = PosixPath('/private/var/folders/8z/drxwmvlx60532vsh1l4ygpsh0000gn/T/pytest-of-robgourdie/pytest-12/test_fetcher_enforces_3_second0')
+
+    def test_fetcher_enforces_3_second_delay(test_config, test_logger, tmp_path):
+        """
+        Contract test: Verify fetch() enforces minimum 3-second delay between requests.
+    
+        Success Criteria SC-004: All HTTP requests delayed by ≥3 seconds.
+        Article 3.1: Minimum delay requirement.
+        """
+        # Create fetcher with test config (3-second delay, 0 jitter for precision)
+>       test_config._config['jitter_max'] = 0  # Remove jitter for precise timing
+        ^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'Config' object has no attribute '_config'. Did you mean: 'pdf_config'?
+
+tests/contract/test_fetcher_rates.py:21: AttributeError
+---------------------------- Captured stdout setup -----------------------------
+2025-12-01 22:42:34,073 - WARNING - Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+------------------------------ Captured log setup ------------------------------
+WARNING  nzfishing_scraper:logger.py:228 Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+_________________________ test_fetcher_respects_jitter _________________________
+
+test_config = <src.config.Config object at 0x103c2ce10>
+test_logger = <src.logger.ScraperLogger object at 0x103c2d090>
+
+    def test_fetcher_respects_jitter(test_config, test_logger):
+        """
+        Test that jitter adds randomness to delay without violating minimum.
+        """
+>       test_config._config['jitter_max'] = 0.5  # Add jitter
+        ^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'Config' object has no attribute '_config'. Did you mean: 'pdf_config'?
+
+tests/contract/test_fetcher_rates.py:50: AttributeError
+---------------------------- Captured stdout setup -----------------------------
+2025-12-01 22:42:34,116 - WARNING - Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+------------------------------ Captured log setup ------------------------------
+WARNING  nzfishing_scraper:logger.py:228 Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+_______________________ test_fetcher_logs_delay_duration _______________________
+
+test_config = <src.config.Config object at 0x103c2d950>
+test_logger = <src.logger.ScraperLogger object at 0x103c2c7d0>
+tmp_path = PosixPath('/private/var/folders/8z/drxwmvlx60532vsh1l4ygpsh0000gn/T/pytest-of-robgourdie/pytest-12/test_fetcher_logs_delay_durati0')
+
+    def test_fetcher_logs_delay_duration(test_config, test_logger, tmp_path):
+        """
+        Verify that fetcher logs actual delay duration for each request.
+        Article 9.3: Complete logging requirement.
+        """
+        fetcher = Fetcher(test_config, test_logger)
+    
+        try:
+            # Make a request
+            fetcher.fetch("http://httpbin.org/status/200", use_cache=False)
+            fetcher.fetch("http://httpbin.org/status/200", use_cache=False)
+    
+            # Read log file
+            log_path = test_config.log_path
+            with open(log_path, 'r') as f:
+                log_lines = f.readlines()
+    
+            # Parse JSON logs and find request events
+            import json
+            request_logs = [json.loads(line) for line in log_lines if '"event": "request"' in line]
+    
+            # At least one request should have delay_seconds logged
+>           assert len(request_logs) >= 2, "Expected at least 2 request log entries"
+E           AssertionError: Expected at least 2 request log entries
+E           assert 0 >= 2
+E            +  where 0 = len([])
+
+tests/contract/test_fetcher_rates.py:97: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+2025-12-01 22:42:34,135 - WARNING - Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+------------------------------ Captured log setup ------------------------------
+WARNING  nzfishing_scraper:logger.py:228 Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+----------------------------- Captured stdout call -----------------------------
+2025-12-01 22:42:34,138 - WARNING - Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+2025-12-01 22:42:39,822 - INFO - HTTP GET http://httpbin.org/status/200 - 200 (delay: 0.00s)
+2025-12-01 22:42:44,556 - INFO - HTTP GET http://httpbin.org/status/200 - 200 (delay: 3.00s)
+------------------------------ Captured log call -------------------------------
+WARNING  nzfishing_scraper:logger.py:228 Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+INFO     nzfishing_scraper:logger.py:84 HTTP GET http://httpbin.org/status/200 - 200 (delay: 0.00s)
+INFO     nzfishing_scraper:logger.py:84 HTTP GET http://httpbin.org/status/200 - 200 (delay: 3.00s)
+__________________________ test_cache_bypasses_delay ___________________________
+
+test_config = <src.config.Config object at 0x103c2f9d0>
+test_logger = <src.logger.ScraperLogger object at 0x103c803e0>
+
+    @pytest.mark.slow
+    def test_cache_bypasses_delay(test_config, test_logger):
+        """
+        Verify that cached responses don't trigger rate limiting delay.
+        """
+        fetcher = Fetcher(test_config, test_logger)
+    
+        try:
+            url = "http://httpbin.org/status/200"
+    
+            # First request (slow, fetches and caches)
+            start = time.time()
+            fetcher.fetch(url, use_cache=True)
+            first_elapsed = time.time() - start
+    
+            # Second request (fast, uses cache, no delay needed)
+            start = time.time()
+            fetcher.fetch(url, use_cache=True)
+            second_elapsed = time.time() - start
+    
+            # Cache hit should be near-instant (< 1 second)
+>           assert second_elapsed < 1.0, \
+                f"Cache hit took {second_elapsed:.2f}s, expected <1s"
+E               AssertionError: Cache hit took 5.04s, expected <1s
+E               assert 5.0401611328125 < 1.0
+
+tests/contract/test_fetcher_rates.py:130: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+2025-12-01 22:42:44,578 - WARNING - Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+------------------------------ Captured log setup ------------------------------
+WARNING  nzfishing_scraper:logger.py:228 Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+----------------------------- Captured stdout call -----------------------------
+2025-12-01 22:42:44,580 - WARNING - Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+2025-12-01 22:42:45,414 - INFO - HTTP GET http://httpbin.org/status/200 - 200 (delay: 0.00s)
+2025-12-01 22:42:50,455 - INFO - HTTP GET http://httpbin.org/status/200 - 200 (delay: 3.00s)
+------------------------------ Captured log call -------------------------------
+WARNING  nzfishing_scraper:logger.py:228 Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+INFO     nzfishing_scraper:logger.py:84 HTTP GET http://httpbin.org/status/200 - 200 (delay: 0.00s)
+INFO     nzfishing_scraper:logger.py:84 HTTP GET http://httpbin.org/status/200 - 200 (delay: 3.00s)
+_________________________ test_uncrawled_regions_query _________________________
+
+test_config = <src.config.Config object at 0x103c2f9d0>
+test_logger = <src.logger.ScraperLogger object at 0x103d1b170>
+test_storage = <src.storage.Storage object at 0x103cc5050>
+
+    def test_uncrawled_regions_query(test_config, test_logger, test_storage):
+        """
+        Test get_uncrawled_regions() returns regions without crawl_timestamp.
+    
+        Used for incremental discovery workflow.
+        """
+        # Insert region with crawl_timestamp
+        test_storage.insert_region(
+            name='Crawled Region',
+            slug='crawled-region',
+            canonical_url='http://example.com/crawled',
+            source_url='http://example.com/index',
+            raw_html='<html>crawled</html>',
+            description='',
+            crawl_timestamp='2024-01-15T12:00:00Z'
+        )
+    
+        # Insert region without crawl_timestamp (new discovery)
+        test_storage.insert_region(
+            name='Uncrawled Region',
+            slug='uncrawled-region',
+            canonical_url='http://example.com/uncrawled',
+            source_url='http://example.com/index',
+            raw_html='',  # No HTML yet
+            description='',
+            crawl_timestamp=''  # Empty = uncrawled
+        )
+    
+        # Query uncrawled regions
+        uncrawled = test_storage.get_uncrawled_regions()
+    
+        # Should return only the uncrawled region
+>       assert len(uncrawled) == 1, \
+            f"Expected 1 uncrawled region, got {len(uncrawled)}"
+E       AssertionError: Expected 1 uncrawled region, got 0
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests/integration/test_region_discovery.py:245: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+2025-12-01 22:43:48,975 - WARNING - Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+------------------------------ Captured log setup ------------------------------
+WARNING  nzfishing_scraper:logger.py:228 Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+___________________ test_river_discovery_duplicate_handling ____________________
+
+test_config = <src.config.Config object at 0x103cf8550>
+test_logger = <src.logger.ScraperLogger object at 0x103d34b90>
+test_storage = <src.storage.Storage object at 0x103af64e0>
+
+    def test_river_discovery_duplicate_handling(test_config, test_logger, test_storage):
+        """
+        Test that re-discovering existing river updates timestamp, not duplicates.
+    
+        Article 6.4: Raw data immutability (but metadata can update).
+        """
+        parser = Parser(test_config)
+    
+        # Insert region
+        region_id = test_storage.insert_region({
+            'name': 'Empty Region',
+            'slug': 'empty-region',
+            'canonical_url': 'http://example.com/region/empty',
+            'source_url': 'http://example.com/index',
+            'raw_html': '<html>region</html>',
+            'description': '',
+            'crawl_timestamp': '2024-01-15T12:00:00Z'
+        })
+    
+        region = test_storage.get_region(region_id)
+    
+        html = """
+        <html><body>
+            <div class="river-list">
+                <a href="/river/test-river">Test River</a>
+            </div>
+        </body></html>
+        """
+    
+        # First discovery
+        rivers = parser.parse_region_page(html, region)
+>       assert len(rivers) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests/integration/test_river_discovery.py:123: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+2025-12-01 22:43:49,138 - WARNING - Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+------------------------------ Captured log setup ------------------------------
+WARNING  nzfishing_scraper:logger.py:228 Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+______________________ test_river_discovery_with_sections ______________________
+
+test_config = <src.config.Config object at 0x103c2ed50>
+test_logger = <src.logger.ScraperLogger object at 0x103d378f0>
+test_storage = <src.storage.Storage object at 0x103d00890>
+
+    def test_river_discovery_with_sections(test_config, test_logger, test_storage):
+        """
+        Test parsing rivers that have multiple sections (Upper/Middle/Lower).
+    
+        Edge Case: Rivers with section annotations.
+        """
+        parser = Parser(test_config)
+    
+        # Insert region
+        region_id = test_storage.insert_region({
+            'name': 'Test Region',
+            'slug': 'test-region',
+            'canonical_url': 'http://example.com/region/test',
+            'source_url': 'http://example.com/index',
+            'raw_html': '<html>region</html>',
+            'description': '',
+            'crawl_timestamp': '2024-01-15T12:00:00Z'
+        })
+    
+        region = test_storage.get_region(region_id)
+    
+        # HTML with river sections mentioned
+        html = """
+        <html><body>
+            <div class="river-list">
+                <a href="/river/tongariro">Tongariro River</a>
+                <a href="/river/tongariro-upper">Tongariro River (Upper)</a>
+                <a href="/river/tongariro-lower">Tongariro River (Lower)</a>
+            </div>
+        </body></html>
+        """
+    
+        rivers = parser.parse_region_page(html, region)
+    
+        # Should parse all 3 links as separate river entries
+        # (Sections will be parsed from detail pages in US3)
+>       assert len(rivers) == 3
+E       assert 0 == 3
+E        +  where 0 = len([])
+
+tests/integration/test_river_discovery.py:224: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+2025-12-01 22:43:49,194 - WARNING - Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+------------------------------ Captured log setup ------------------------------
+WARNING  nzfishing_scraper:logger.py:228 Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+_____________________ test_river_discovery_cascade_delete ______________________
+
+test_config = <src.config.Config object at 0x103c2f9d0>
+test_logger = <src.logger.ScraperLogger object at 0x103d35970>
+test_storage = <src.storage.Storage object at 0x103d23070>
+
+    def test_river_discovery_cascade_delete(test_config, test_logger, test_storage):
+        """
+        Test that deleting region cascades to rivers.
+    
+        Database integrity: ON DELETE CASCADE.
+        """
+        # Insert region
+        region_id = test_storage.insert_region({
+            'name': 'Test Region',
+            'slug': 'test-region',
+            'canonical_url': 'http://example.com/region/test',
+            'source_url': 'http://example.com/index',
+            'raw_html': '<html>region</html>',
+            'description': '',
+            'crawl_timestamp': '2024-01-15T12:00:00Z'
+        })
+    
+        # Insert rivers
+        river_id_1 = test_storage.insert_river({
+            'region_id': region_id,
+            'name': 'River 1',
+            'slug': 'river-1',
+            'canonical_url': 'http://example.com/river/1',
+            'raw_html': '<html>river1</html>',
+            'crawl_timestamp': '2024-01-15T12:00:00Z'
+        })
+    
+        river_id_2 = test_storage.insert_river({
+            'region_id': region_id,
+            'name': 'River 2',
+            'slug': 'river-2',
+            'canonical_url': 'http://example.com/river/2',
+            'raw_html': '<html>river2</html>',
+            'crawl_timestamp': '2024-01-15T12:00:00Z'
+        })
+    
+        # Verify rivers exist
+        assert test_storage.get_river(river_id_1) is not None
+        assert test_storage.get_river(river_id_2) is not None
+    
+        # Delete region (should cascade to rivers)
+        import sqlite3
+        conn = sqlite3.connect(test_config.database_path)
+        conn.execute('DELETE FROM regions WHERE id = ?', (region_id,))
+        conn.commit()
+        conn.close()
+    
+        # Verify rivers deleted
+>       assert test_storage.get_river(river_id_1) is None
+E       AssertionError: assert {'canonical_url': 'http://example.com/river/1', 'crawl_timestamp': '2024-01-15T12:00:00Z', 'created_at': '2025-12-01 09:43:49', 'description': None, ...} is None
+E        +  where {'canonical_url': 'http://example.com/river/1', 'crawl_timestamp': '2024-01-15T12:00:00Z', 'created_at': '2025-12-01 09:43:49', 'description': None, ...} = get_river(1)
+E        +    where get_river = <src.storage.Storage object at 0x103d23070>.get_river
+
+tests/integration/test_river_discovery.py:290: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+2025-12-01 22:43:49,233 - WARNING - Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+------------------------------ Captured log setup ------------------------------
+WARNING  nzfishing_scraper:logger.py:228 Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+___________________ test_parse_region_index_duplicate_links ____________________
+
+test_config = <src.config.Config object at 0x103cf87d0>
+
+    def test_parse_region_index_duplicate_links(test_config):
+        """
+        Test that duplicate links are de-duplicated by canonical URL.
+        """
+        parser = Parser(test_config)
+        regions = parser.parse_region_index(DUPLICATE_LINKS)
+    
+        # DUPLICATE_LINKS has 2 links to /region/test, 1 to /region/other
+        # Should de-duplicate to 2 unique regions
+>       assert len(regions) == 2, \
+            f"Expected 2 unique regions (de-duplicated), got {len(regions)}"
+E       AssertionError: Expected 2 unique regions (de-duplicated), got 0
+E       assert 0 == 2
+E        +  where 0 = len([])
+
+tests/unit/test_parser_regions.py:64: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+2025-12-01 22:43:54,021 - WARNING - Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+------------------------------ Captured log setup ------------------------------
+WARNING  nzfishing_scraper:logger.py:228 Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+_____________________ test_parse_region_index_invalid_urls _____________________
+
+test_config = <src.config.Config object at 0x103c2de50>
+
+    def test_parse_region_index_invalid_urls(test_config):
+        """
+        Test that invalid/empty URLs are skipped gracefully.
+    
+        Article 4.4: Graceful handling of malformed data.
+        """
+        parser = Parser(test_config)
+        regions = parser.parse_region_index(INVALID_URLS)
+    
+        # INVALID_URLS has 3 links: "not-a-url", "", "/region/valid"
+        # Should only extract the valid one
+>       assert len(regions) == 1, \
+            f"Expected 1 valid region, got {len(regions)}"
+E       AssertionError: Expected 1 valid region, got 2
+E       assert 2 == 1
+E        +  where 2 = len([{'canonical_url': 'not-a-url', 'description': '', 'name': 'Invalid', 'slug': 'not-a-url'}, {'canonical_url': '/region/valid', 'description': '', 'name': 'Valid', 'slug': 'valid'}])
+
+tests/unit/test_parser_regions.py:83: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+2025-12-01 22:43:54,043 - WARNING - Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+------------------------------ Captured log setup ------------------------------
+WARNING  nzfishing_scraper:logger.py:228 Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+_________________ test_parse_region_index_with_custom_selector _________________
+
+test_config = <src.config.Config object at 0x103c2d090>
+
+    def test_parse_region_index_with_custom_selector(test_config):
+        """
+        Test that parser respects custom selector from config.
+        """
+        # Modify config selector
+>       test_config._config['discovery_rules']['region_selector'] = 'ul.custom-list a'
+        ^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'Config' object has no attribute '_config'. Did you mean: 'pdf_config'?
+
+tests/unit/test_parser_regions.py:211: AttributeError
+---------------------------- Captured stdout setup -----------------------------
+2025-12-01 22:43:54,145 - WARNING - Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+------------------------------ Captured log setup ------------------------------
+WARNING  nzfishing_scraper:logger.py:228 Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+_______________________ test_parse_region_page_multiple ________________________
+
+test_config = <src.config.Config object at 0x103c2cf50>
+
+    def test_parse_region_page_multiple(test_config):
+        """
+        Test parsing region page with multiple rivers.
+        """
+        parser = Parser(test_config)
+    
+        region = {
+            'id': 1,
+            'name': 'Test Region',
+            'canonical_url': 'http://example.com/region/test'
+        }
+    
+        rivers = parser.parse_region_page(MULTIPLE_RIVERS, region)
+    
+        assert len(rivers) == 4, f"Expected 4 rivers, got {len(rivers)}"
+    
+        # Verify all expected names present
+        names = {r['name'] for r in rivers}
+>       assert names == {'Tongariro', 'Rangitikei', 'Manawatu', 'Whanganui'}
+E       AssertionError: assert {'Manawatu Ri...nganui River'} == {'Manawatu', ..., 'Whanganui'}
+E         
+E         Extra items in the left set:
+E         'Whanganui River'
+E         'Manawatu River'
+E         'Tongariro River'
+E         'Rangitikei River'
+E         Extra items in the right set:...
+E         
+E         ...Full output truncated (5 lines hidden), use '-vv' to show
+
+tests/unit/test_parser_rivers.py:60: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+2025-12-01 22:43:54,178 - WARNING - Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+------------------------------ Captured log setup ------------------------------
+WARNING  nzfishing_scraper:logger.py:228 Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+_____________________ test_parse_region_page_no_inference ______________________
+
+test_config = <src.config.Config object at 0x103cf8550>
+
+    def test_parse_region_page_no_inference(test_config):
+        """
+        Test that parser only extracts explicit content, no inference.
+    
+        Article 5.2: No inference or fabrication.
+        """
+        parser = Parser(test_config)
+    
+        region = {
+            'id': 1,
+            'name': 'Test Region',
+            'canonical_url': 'http://example.com/region/test'
+        }
+    
+        # Use minimal HTML with only name and URL
+        html = """
+        <html><body>
+            <div class="river-list">
+                <a href="/river/test">Test River</a>
+            </div>
+        </body></html>
+        """
+    
+        rivers = parser.parse_region_page(html, region)
+>       assert len(rivers) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests/unit/test_parser_rivers.py:269: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+2025-12-01 22:43:54,308 - WARNING - Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+------------------------------ Captured log setup ------------------------------
+WARNING  nzfishing_scraper:logger.py:228 Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+__________________ test_parse_region_page_special_characters ___________________
+
+test_config = <src.config.Config object at 0x103c2da90>
+
+    def test_parse_region_page_special_characters(test_config):
+        """
+        Test parsing river names with special characters (Māori names).
+    
+        Article 5.3: No encoding assumptions.
+        """
+        parser = Parser(test_config)
+    
+        region = {
+            'id': 1,
+            'name': 'Test Region',
+            'canonical_url': 'http://example.com/region/test'
+        }
+    
+        # Create test HTML with Māori characters
+        html = """
+        <html><body>
+            <div class="river-list">
+                <a href="/river/waikato">Waikato River</a>
+                <a href="/river/whanganui">Whanganui (Te Awa Tupua)</a>
+            </div>
+        </body></html>
+        """
+    
+        rivers = parser.parse_region_page(html, region)
+    
+        # Should preserve special characters
+        names = {r['name'] for r in rivers}
+>       assert 'Whanganui (Te Awa Tupua)' in names, \
+            "Special characters not preserved"
+E       AssertionError: Special characters not preserved
+E       assert 'Whanganui (Te Awa Tupua)' in set()
+
+tests/unit/test_parser_rivers.py:309: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+2025-12-01 22:43:54,330 - WARNING - Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+------------------------------ Captured log setup ------------------------------
+WARNING  nzfishing_scraper:logger.py:228 Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+_______________ test_insert_region_duplicate_slug_different_url ________________
+
+self = <src.storage.Storage object at 0x103d58890>
+region = {'canonical_url': 'http://example.com/region/test-2', 'crawl_timestamp': '2024-01-15T12:00:00Z', 'description': '', 'name': 'Test Region 2', ...}
+kwargs = {'canonical_url': 'http://example.com/region/test-2', 'crawl_timestamp': '2024-01-15T12:00:00Z', 'description': '', 'name': 'Test Region 2', ...}
+
+    def insert_region(self, region: Dict = None, **kwargs) -> int:
+        """
+        Insert or update a region.
+    
+        Args:
+            region: Dict with keys: name, slug, canonical_url, source_url,
+                   raw_html, description, crawl_timestamp
+            **kwargs: Alternative to passing dict (for backward compatibility)
+    
+        Returns:
+            Region ID
+        """
+        if region is None:
+            region = kwargs
+    
+        try:
+>           cursor = self.conn.execute(
+                """
+                INSERT INTO regions (
+                    name, slug, canonical_url, source_url, raw_html,
+                    description, crawl_timestamp, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(canonical_url) DO UPDATE SET
+                    name = excluded.name,
+                    slug = excluded.slug,
+                    raw_html = excluded.raw_html,
+                    description = excluded.description,
+                    crawl_timestamp = excluded.crawl_timestamp,
+                    updated_at = CURRENT_TIMESTAMP
+                RETURNING id
+                """,
+                (
+                    region['name'],
+                    region['slug'],
+                    region['canonical_url'],
+                    region.get('source_url'),
+                    region.get('raw_html'),
+                    region.get('description'),
+                    region['crawl_timestamp']
+                )
+            )
+E           sqlite3.IntegrityError: UNIQUE constraint failed: regions.slug
+
+src/storage.py:96: IntegrityError
+
+During handling of the above exception, another exception occurred:
+
+test_storage = <src.storage.Storage object at 0x103d58890>
+
+    def test_insert_region_duplicate_slug_different_url(test_storage):
+        """
+        Test that same slug with different canonical_url creates separate records.
+    
+        Slug is not globally unique, canonical_url is.
+        """
+        # Insert region 1
+        region_id_1 = test_storage.insert_region(
+            name='Test Region 1',
+            slug='test',  # Same slug
+            canonical_url='http://example.com/region/test-1',  # Different URL
+            source_url='http://example.com/index',
+            raw_html='<html>1</html>',
+            description='',
+            crawl_timestamp='2024-01-15T12:00:00Z'
+        )
+    
+        # Insert region 2 with same slug
+>       region_id_2 = test_storage.insert_region(
+            name='Test Region 2',
+            slug='test',  # Same slug
+            canonical_url='http://example.com/region/test-2',  # Different URL
+            source_url='http://example.com/index',
+            raw_html='<html>2</html>',
+            description='',
+            crawl_timestamp='2024-01-15T12:00:00Z'
+        )
+
+tests/unit/test_storage_regions.py:155: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <src.storage.Storage object at 0x103d58890>
+region = {'canonical_url': 'http://example.com/region/test-2', 'crawl_timestamp': '2024-01-15T12:00:00Z', 'description': '', 'name': 'Test Region 2', ...}
+kwargs = {'canonical_url': 'http://example.com/region/test-2', 'crawl_timestamp': '2024-01-15T12:00:00Z', 'description': '', 'name': 'Test Region 2', ...}
+
+    def insert_region(self, region: Dict = None, **kwargs) -> int:
+        """
+        Insert or update a region.
+    
+        Args:
+            region: Dict with keys: name, slug, canonical_url, source_url,
+                   raw_html, description, crawl_timestamp
+            **kwargs: Alternative to passing dict (for backward compatibility)
+    
+        Returns:
+            Region ID
+        """
+        if region is None:
+            region = kwargs
+    
+        try:
+            cursor = self.conn.execute(
+                """
+                INSERT INTO regions (
+                    name, slug, canonical_url, source_url, raw_html,
+                    description, crawl_timestamp, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(canonical_url) DO UPDATE SET
+                    name = excluded.name,
+                    slug = excluded.slug,
+                    raw_html = excluded.raw_html,
+                    description = excluded.description,
+                    crawl_timestamp = excluded.crawl_timestamp,
+                    updated_at = CURRENT_TIMESTAMP
+                RETURNING id
+                """,
+                (
+                    region['name'],
+                    region['slug'],
+                    region['canonical_url'],
+                    region.get('source_url'),
+                    region.get('raw_html'),
+                    region.get('description'),
+                    region['crawl_timestamp']
+                )
+            )
+            region_id = cursor.fetchone()[0]
+            self.conn.commit()
+            return region_id
+        except sqlite3.Error as e:
+            self.conn.rollback()
+>           raise StorageError(f"Failed to insert region: {e}")
+E           src.exceptions.StorageError: Failed to insert region: UNIQUE constraint failed: regions.slug
+
+src/storage.py:126: StorageError
+---------------------------- Captured stdout setup -----------------------------
+2025-12-01 22:43:54,718 - WARNING - Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+------------------------------ Captured log setup ------------------------------
+WARNING  nzfishing_scraper:logger.py:228 Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+__________________________ test_get_uncrawled_regions __________________________
+
+test_storage = <src.storage.Storage object at 0x103d420f0>
+
+    def test_get_uncrawled_regions(test_storage):
+        """
+        Test querying regions without crawl timestamps.
+        """
+        # Insert crawled region
+        test_storage.insert_region(
+            name='Crawled',
+            slug='crawled',
+            canonical_url='http://example.com/crawled',
+            source_url='http://example.com/index',
+            raw_html='<html>crawled</html>',
+            description='',
+            crawl_timestamp='2024-01-15T12:00:00Z'  # Has timestamp
+        )
+    
+        # Insert uncrawled region
+        test_storage.insert_region(
+            name='Uncrawled',
+            slug='uncrawled',
+            canonical_url='http://example.com/uncrawled',
+            source_url='http://example.com/index',
+            raw_html='',
+            description='',
+            crawl_timestamp=''  # Empty = uncrawled
+        )
+    
+        # Query uncrawled
+        uncrawled = test_storage.get_uncrawled_regions()
+    
+>       assert len(uncrawled) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests/unit/test_storage_regions.py:255: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+2025-12-01 22:43:54,817 - WARNING - Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+------------------------------ Captured log setup ------------------------------
+WARNING  nzfishing_scraper:logger.py:228 Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+__________________ test_insert_region_empty_name_raises_error __________________
+
+test_storage = <src.storage.Storage object at 0x103d41f10>
+
+    def test_insert_region_empty_name_raises_error(test_storage):
+        """
+        Test that inserting region with empty name raises ValueError.
+    
+        Article 6.3: Required fields must be non-empty.
+        """
+>       with pytest.raises(ValueError, match="name"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/unit/test_storage_regions.py:265: Failed
+---------------------------- Captured stdout setup -----------------------------
+2025-12-01 22:43:54,852 - WARNING - Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+------------------------------ Captured log setup ------------------------------
+WARNING  nzfishing_scraper:logger.py:228 Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+_____________ test_insert_region_empty_canonical_url_raises_error ______________
+
+test_storage = <src.storage.Storage object at 0x103d412b0>
+
+    def test_insert_region_empty_canonical_url_raises_error(test_storage):
+        """
+        Test that inserting region with empty canonical_url raises ValueError.
+        """
+>       with pytest.raises(ValueError, match="canonical_url"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/unit/test_storage_regions.py:281: Failed
+---------------------------- Captured stdout setup -----------------------------
+2025-12-01 22:43:54,880 - WARNING - Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+------------------------------ Captured log setup ------------------------------
+WARNING  nzfishing_scraper:logger.py:228 Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+__________________ test_river_cascade_delete_on_region_delete __________________
+
+test_storage = <src.storage.Storage object at 0x103d1b2f0>
+sample_region_data = {'canonical_url': 'http://example.com/region/test-region', 'crawl_timestamp': '2024-01-15T12:00:00Z', 'description': 'A test region for unit tests', 'name': 'Test Region', ...}
+
+    def test_river_cascade_delete_on_region_delete(test_storage, sample_region_data):
+        """
+        Test that deleting region cascades to rivers.
+    
+        ON DELETE CASCADE enforcement.
+        """
+        # Insert region
+        region_id = test_storage.insert_region(sample_region_data)
+    
+        # Insert rivers
+        river_id_1 = test_storage.insert_river({
+            'region_id': region_id,
+            'name': 'River 1',
+            'slug': 'river-1',
+            'canonical_url': 'http://example.com/river/1',
+            'raw_html': '<html>1</html>',
+            'crawl_timestamp': '2024-01-15T12:00:00Z'
+        })
+    
+        river_id_2 = test_storage.insert_river({
+            'region_id': region_id,
+            'name': 'River 2',
+            'slug': 'river-2',
+            'canonical_url': 'http://example.com/river/2',
+            'raw_html': '<html>2</html>',
+            'crawl_timestamp': '2024-01-15T12:00:00Z'
+        })
+    
+        # Verify rivers exist
+        assert test_storage.get_river(river_id_1) is not None
+        assert test_storage.get_river(river_id_2) is not None
+    
+        # Delete region
+        import sqlite3
+        conn = sqlite3.connect(test_storage.db_path)
+        conn.execute('DELETE FROM regions WHERE id = ?', (region_id,))
+        conn.commit()
+        conn.close()
+    
+        # Verify rivers deleted (CASCADE)
+>       assert test_storage.get_river(river_id_1) is None
+E       AssertionError: assert {'canonical_url': 'http://example.com/river/1', 'crawl_timestamp': '2024-01-15T12:00:00Z', 'created_at': '2025-12-01 09:43:55', 'description': None, ...} is None
+E        +  where {'canonical_url': 'http://example.com/river/1', 'crawl_timestamp': '2024-01-15T12:00:00Z', 'created_at': '2025-12-01 09:43:55', 'description': None, ...} = get_river(1)
+E        +    where get_river = <src.storage.Storage object at 0x103d1b2f0>.get_river
+
+tests/unit/test_storage_rivers.py:408: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+2025-12-01 22:43:55,217 - WARNING - Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+------------------------------ Captured log setup ------------------------------
+WARNING  nzfishing_scraper:logger.py:228 Failed to load robots.txt: <urlopen error [Errno 61] Connection refused>
+=============================== warnings summary ===============================
+tests/contract/test_fetcher_rates.py:109
+  /Users/robgourdie/Documents/Projects/fly_fishing_log/tests/contract/test_fetcher_rates.py:109: PytestUnknownMarkWarning: Unknown pytest.mark.slow - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.slow
+
+tests/contract/test_fetcher_rates.py: 6 warnings
+tests/integration/test_caching.py: 17 warnings
+tests/integration/test_full_workflow.py: 6 warnings
+tests/integration/test_rate_limiting.py: 16 warnings
+tests/integration/test_region_discovery.py: 3 warnings
+tests/integration/test_river_discovery.py: 4 warnings
+tests/unit/test_fetcher_retry.py: 8 warnings
+tests/unit/test_logger_requests.py: 13 warnings
+  /Users/robgourdie/Documents/Projects/fly_fishing_log/src/logger.py:41: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    event_data['timestamp'] = datetime.utcnow().isoformat() + 'Z'
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================================ tests coverage ================================
+_______________ coverage: platform darwin, python 3.13.7-final-0 _______________
+
+Name                   Stmts   Miss   Cover   Missing
+-----------------------------------------------------
+src/__init__.py            1      0 100.00%
+src/cli.py               250    250   0.00%   7-566
+src/config.py             73     14  80.82%   34, 53, 57, 64, 77-86, 106, 146, 156
+src/exceptions.py         18      0 100.00%
+src/fetcher.py           131     11  91.60%   77, 163-164, 247-268
+src/logger.py             60     10  83.33%   157-167, 188-197, 210-218, 232
+src/models.py            119    119   0.00%   6-160
+src/parser.py            156     26  83.33%   59, 65, 78, 120, 130, 189, 203, 208, 229-233, 238, 255, 257, 259, 285-294, 324, 335
+src/pdf_generator.py      23     23   0.00%   6-102
+src/storage.py           175     35  80.00%   49, 58-59, 71, 228-255, 259-263, 296-298, 337-339, 354, 382-384, 417-419, 431-433, 449-462
+-----------------------------------------------------
+TOTAL                   1006    488  51.49%
+Coverage HTML written to dir htmlcov
+=========================== short test summary info ============================
+FAILED tests/contract/test_fetcher_rates.py::test_fetcher_enforces_3_second_delay
+FAILED tests/contract/test_fetcher_rates.py::test_fetcher_respects_jitter - A...
+FAILED tests/contract/test_fetcher_rates.py::test_fetcher_logs_delay_duration
+FAILED tests/contract/test_fetcher_rates.py::test_cache_bypasses_delay - Asse...
+FAILED tests/integration/test_region_discovery.py::test_uncrawled_regions_query
+FAILED tests/integration/test_river_discovery.py::test_river_discovery_duplicate_handling
+FAILED tests/integration/test_river_discovery.py::test_river_discovery_with_sections
+FAILED tests/integration/test_river_discovery.py::test_river_discovery_cascade_delete
+FAILED tests/unit/test_parser_regions.py::test_parse_region_index_duplicate_links
+FAILED tests/unit/test_parser_regions.py::test_parse_region_index_invalid_urls
+FAILED tests/unit/test_parser_regions.py::test_parse_region_index_with_custom_selector
+FAILED tests/unit/test_parser_rivers.py::test_parse_region_page_multiple - As...
+FAILED tests/unit/test_parser_rivers.py::test_parse_region_page_no_inference
+FAILED tests/unit/test_parser_rivers.py::test_parse_region_page_special_characters
+FAILED tests/unit/test_storage_regions.py::test_insert_region_duplicate_slug_different_url
+FAILED tests/unit/test_storage_regions.py::test_get_uncrawled_regions - asser...
+FAILED tests/unit/test_storage_regions.py::test_insert_region_empty_name_raises_error
+FAILED tests/unit/test_storage_regions.py::test_insert_region_empty_canonical_url_raises_error
+FAILED tests/unit/test_storage_rivers.py::test_river_cascade_delete_on_region_delete
+19 failed, 131 passed, 74 warnings in 82.42s (0:01:22)
