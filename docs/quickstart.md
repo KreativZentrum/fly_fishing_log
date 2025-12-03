@@ -428,7 +428,7 @@ open htmlcov/index.html
 
 ```yaml
 # Base URL for scraping
-base_url: "https://fishandgame.org.nz"
+base_url: "https://nzfishing.com"
 
 # User agent string (identify yourself)
 user_agent: "nzfishing-scraper/1.0 (educational/personal use)"

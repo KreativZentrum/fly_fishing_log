@@ -229,7 +229,7 @@ fly_fishing_log/
 ### Config File: `config/nzfishing_config.yaml`
 
 ```yaml
-base_url: "https://fishandgame.org.nz"
+base_url: "https://nzfishing.com"
 user_agent: "nzfishing-scraper/1.0 (educational/personal use)"
 
 # Rate limiting
