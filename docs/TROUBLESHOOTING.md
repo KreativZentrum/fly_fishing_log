@@ -153,6 +153,58 @@ Do not scrape disallowed paths (Article 2.3).
 2. Update selectors in `config/nzfishing_config.yaml`:
    ```yaml
    discovery_rules:
+     region_selector: "div.new-region-class a"  # Update this
+     river_selector: ".new-river-class a"        # Update this
+   ```
+
+3. Test new selectors:
+   ```bash
+   python -m src.cli discover --regions
+   ```
+
+#### Issue: Region discovery returns 0 regions (Issue #3)
+**Cause**: CSS selectors don't match actual site HTML structure at https://nzfishing.com/where-to-fish
+
+**Current Selector**: `.region-list .region-item` (may not match live site)
+
+**Solution**:
+1. Inspect the actual HTML structure:
+   ```bash
+   curl -s https://nzfishing.com/where-to-fish | head -100
+   ```
+
+2. Find the correct selector by viewing page source in browser:
+   - Visit https://nzfishing.com/where-to-fish
+   - Right-click → "Inspect Element"
+   - Find the container with region links
+   - Note the class names and structure
+
+3. Update `config/nzfishing_config.yaml`:
+   ```yaml
+   discovery_rules:
+     region_selector: "YOUR_CORRECT_SELECTOR_HERE"
+   ```
+
+4. Common selector patterns to try:
+   ```yaml
+   region_selector: "div.region-list a"           # Direct links
+   region_selector: ".fishing-regions .region a"  # Nested structure
+   region_selector: "article.region h2 a"         # Semantic HTML
+   region_selector: "[data-region] a"             # Data attributes
+   ```
+
+5. Test each selector:
+   ```bash
+   python -m src.cli discover --regions
+   # Check output: "Found N regions"
+   ```
+
+**Note**: The parser was designed for a generic fishing site structure. The actual nzfishing.com site may use different CSS classes. This is a known limitation documented in Phase 9 validation report.
+   ```
+
+2. Update selectors in `config/nzfishing_config.yaml`:
+   ```yaml
+   discovery_rules:
      river_selector: "ul.river-links li a"  # New selector
    ```
 

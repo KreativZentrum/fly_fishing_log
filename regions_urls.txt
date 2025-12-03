@@ -1,0 +1,47 @@
+# Regional page URLs for NZ Flyfishing scraper
+# Use with: python cli_regional_mode.py regions_urls.txt
+# Or: python -m src.cli scrape --regional-urls --url-file regions_urls.txt
+
+# NORTH ISLAND REGIONS
+
+# Northland
+https://nzfishing.com/northland/where-to-fish/
+
+# Auckland-Waikato
+https://nzfishing.com/auckland-waikato/where-to-fish/
+
+# Eastern-Rotorua
+https://nzfishing.com/eastern-rotorua/where-to-fish/
+
+# Taupo-Turangi
+https://nzfishing.com/taupo-turangi/where-to-fish/
+
+# Hawkes Bay
+https://nzfishing.com/hawkes-bay/where-to-fish/
+
+# Taranaki
+https://nzfishing.com/taranaki/where-to-fish/
+
+# Wellington
+https://nzfishing.com/wellington/where-to-fish/
+
+
+# SOUTH ISLAND REGIONS
+
+# Nelson-Marlborough
+https://nzfishing.com/nelson-marlborough/where-to-fish/
+
+# West Coast
+https://nzfishing.com/west-coast/where-to-fish/
+
+# North Canterbury
+https://nzfishing.com/north-canterbury/where-to-fish/
+
+# Central South Island
+https://nzfishing.com/central-south-island/where-to-fish/
+
+# Otago
+https://nzfishing.com/otago/where-to-fish/
+
+# Southland
+https://nzfishing.com/southland/where-to-fish/

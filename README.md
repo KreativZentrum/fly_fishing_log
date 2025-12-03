@@ -39,7 +39,7 @@ cd fly_fishing_log
 # Setup environment
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r config/requirements.txt
 
 # Verify installation
 pytest tests/ -v

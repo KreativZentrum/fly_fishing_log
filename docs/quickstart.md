@@ -23,7 +23,7 @@ python3 -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # 3. Install dependencies
-pip install -r requirements.txt
+pip install -r config/requirements.txt
 
 # 4. Verify installation
 python -m pytest tests/ -v
@@ -38,7 +38,7 @@ python -m pytest tests/ -v
 Scrape the regional index to discover all fishing regions in New Zealand:
 
 ```bash
-python -m src.cli discover --regions
+python -m src.cli scrape --all
 ```
 
 **Output**:
@@ -48,13 +48,13 @@ python -m src.cli discover --regions
 
 ---
 
-### 2. Discover Rivers in a Specific Region
+### 2. Extract River Details
 
-After discovering regions, scrape rivers for a particular region:
+After discovering regions and rivers, scrape detailed pages:
 
 ```bash
-# Example: Discover rivers in region ID 1 (e.g., "Northland")
-python -m src.cli discover --rivers --region-id 1
+# Extract details for all rivers
+python -m src.cli scrape --details
 ```
 
 **Output**:
@@ -64,12 +64,12 @@ python -m src.cli discover --rivers --region-id 1
 
 ---
 
-### 3. Discover Rivers in All Regions
+### 3. Refresh Existing Data
 
-Batch-discover rivers across all regions:
+Re-scrape with cache bypass:
 
 ```bash
-python -m src.cli discover --rivers --all
+python -m src.cli scrape --refresh
 ```
 
 **Output**:
@@ -79,25 +79,19 @@ python -m src.cli discover --rivers --all
 
 ---
 
-### 4. Extract Detailed River Information
+### 4. Query Database
 
-Scrape detailed pages for individual rivers:
+Use SQLite to query the scraped data:
 
 ```bash
-# Extract details for river ID 5
-python -m src.cli scrape-details --river-id 5
+# Query regions
+python -m src.cli query regions
 
-# Extract details for all rivers in region 1
-python -m src.cli scrape-details --region-id 1
-
-# Extract details for all rivers
-python -m src.cli scrape-details --all
+# Query rivers in a specific region
+python -m src.cli query rivers --region-id 1
 ```
 
-**Output**:
-- Database: `flies`, `regulations`, `sections` tables populated
-- Logs: Parsing results and field extractions
-- Duration: ~3 seconds per river detail page
+**Output**: List of regions or rivers with IDs and names
 
 ---
 
@@ -133,7 +127,7 @@ python -m src.cli cache --clear
 
 ---
 
-### 7. Query Database
+### 7. Direct Database Query
 
 Use SQLite to query the scraped data:
 
@@ -176,14 +170,11 @@ pytest --cov=src --cov-report=term-missing
 For the first time, scrape everything systematically:
 
 ```bash
-# Step 1: Discover regions
-python -m src.cli discover --regions
+# Step 1: Scrape all regions and rivers
+python -m src.cli scrape --all
 
-# Step 2: Discover all rivers
-python -m src.cli discover --rivers --all
-
-# Step 3: Extract details for all rivers
-python -m src.cli scrape-details --all
+# Step 2: Extract details for all rivers
+python -m src.cli scrape --details
 ```
 
 **Duration**: 30-60 minutes (depending on site size)  
@@ -196,11 +187,11 @@ python -m src.cli scrape-details --all
 Update existing data periodically (e.g., monthly):
 
 ```bash
-# Re-scrape with cache enabled (default)
-# Only changed pages will be re-fetched
-python -m src.cli discover --regions
-python -m src.cli discover --rivers --all
-python -m src.cli scrape-details --all --refresh
+# Re-scrape with cache bypass
+python -m src.cli scrape --refresh
+
+# Extract details (will use cache for unchanged pages)
+python -m src.cli scrape --details
 ```
 
 **Duration**: 5-10 minutes (most requests use cache)  
@@ -213,15 +204,15 @@ python -m src.cli scrape-details --all --refresh
 Focus on a specific region for detailed analysis:
 
 ```bash
-# Step 1: Discover all regions (if not already done)
-python -m src.cli discover --regions
+# Step 1: Scrape all regions first
+python -m src.cli scrape --all
 
 # Step 2: Find region ID
 sqlite3 data/nzfishing.db "SELECT id, name FROM regions WHERE name LIKE '%Waikato%';"
 
-# Step 3: Deep dive into that region
-python -m src.cli discover --rivers --region-id 3
-python -m src.cli scrape-details --region-id 3
+# Step 3: Scrape specific region and extract details
+python -m src.cli scrape --region 3
+python -m src.cli scrape --details
 ```
 
 **Duration**: 2-5 minutes (targeted scraping)  

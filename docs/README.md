@@ -42,8 +42,11 @@ Edit `config/nzfishing_config.yaml` to customize:
 ### Usage
 
 ```bash
-# Scrape all regions and rivers (coming in Phase 3-5)
+# Scrape all regions and rivers
 python -m src.cli scrape --all
+
+# Extract river details
+python -m src.cli scrape --details
 
 # Query database
 python -m src.cli query regions
